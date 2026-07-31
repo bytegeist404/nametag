@@ -49,3 +49,10 @@ Or: Settings > Apps > Installed apps > Nametag > Uninstall.
   under `instances\` are not meant to be shared.
 - A Minecraft client/Java runtime update can invalidate a clone's captured
   paths; just restart `nametag` to recapture.
+
+## Credits
+
+The process-command-line capture approach (finding the running Minecraft
+process and reusing its launch command) is based on the macOS implementation
+in [basbase/mc-login-cloner](https://github.com/basbase/mc-login-cloner/blob/master/src/mac.ts),
+ported to Windows/PowerShell.
