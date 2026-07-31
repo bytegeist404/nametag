@@ -20,13 +20,16 @@ Invoke-WebRequest -Uri "$RepoRawBase/uninstall.ps1" -OutFile (Join-Path $Install
 # cmd.exe's active batch job for as long as the loop runs, and Ctrl+C during a
 # batch job always triggers cmd's "Terminate batch job (Y/N)?" prompt,
 # regardless of how the child process handles the signal. Running `start`ed
-# means Ctrl+C is handled directly by PowerShell in its own window, no prompt.
+# means Ctrl+C is handled directly by PowerShell in its own window, no prompt,
+# and the window closes itself when the script stops. On an unhandled error
+# nametag.ps1 pauses for a keypress before exiting, so the window still won't
+# vanish before an error can be read - see nametag.ps1's run loop.
 # `uninstall`/`help` are one-shot, so they stay inline and return immediately.
 @"
 @echo off
 if /I "%1"=="uninstall" goto passthrough
 if /I "%1"=="help" goto passthrough
-start "Nametag" powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "$InstallDir\nametag.ps1" %*
+start "Nametag" powershell -NoProfile -ExecutionPolicy Bypass -File "$InstallDir\nametag.ps1" %*
 goto :eof
 :passthrough
 powershell -NoProfile -ExecutionPolicy Bypass -File "$InstallDir\nametag.ps1" %*

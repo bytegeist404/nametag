@@ -40,21 +40,26 @@ This opens a new "Nametag" console window that watches for Minecraft, clones
 it under the given name, and keeps re-tagging window titles (e.g.
 `Minecraft - Sibling`) for as long as it runs — re-tagging has to be
 continuous, since Minecraft resets its own title once loading finishes.
-Leave it running for as long as you're playing, and press Ctrl+C in the
-"Nametag" window (or just close it) to stop.
+Leave it running for as long as you're playing.
+
+Press Ctrl+C in the "Nametag" window to stop — it closes itself right away.
+If something goes wrong instead (a clone fails to launch, or Nametag hits an
+unexpected error), the window stays open and reports it, so you always get a
+chance to read what happened before it disappears; a clone launch failure
+also gets its captured output logged to `launcher-error.log` under
+`instances\<name>\` for reference.
 
 Flags:
 
-| Flag               | Default | Description                                                                                                                     |
-|--------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------|
-| `-Name <name>`     | `Clone` | Display name for the clone.                                                                                                    |
-| `-PollSeconds <n>` | `1`     | How often to check for a new Minecraft launch, in seconds.                                                                     |
-| `-ShowWindow`      | off     | Show the clone's console window (titled `Nametag - <name>`) instead of running it hidden — useful for troubleshooting a clone that fails to launch. |
+| Flag               | Default | Description                                                  |
+|--------------------|---------|---------------------------------------------------------------|
+| `-Name <name>`     | `Clone` | Display name for the clone.                                  |
+| `-PollSeconds <n>` | `1`     | How often to check for a new Minecraft launch, in seconds.   |
 
 All together:
 
 ```powershell
-nametag -Name Sibling -PollSeconds 2 -ShowWindow
+nametag -Name Sibling -PollSeconds 2
 ```
 
 ## Uninstall

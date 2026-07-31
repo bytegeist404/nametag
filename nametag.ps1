@@ -6,9 +6,7 @@ param(
 
     [string]$Name = "Clone",
 
-    [int]$PollSeconds = 1,
-
-    [switch]$ShowWindow
+    [int]$PollSeconds = 1
 )
 
 $InstallRoot = $PSScriptRoot
@@ -29,7 +27,7 @@ function Get-MinecraftProcesses {
 }
 
 function New-Clone {
-    param($Proc, [string]$Name, [string]$InstallRoot, [switch]$ShowWindow)
+    param($Proc, [string]$Name, [string]$InstallRoot)
 
     $cmd = $Proc.CommandLine
     $cmd = $cmd -replace '(-D[^ ]+=)\s+', '$1'
@@ -55,14 +53,23 @@ function New-Clone {
     $launcher = Join-Path $instanceDir "launch_$Name.cmd"
     @"
 @echo off
-title Nametag - $Name
 cd /d "$instanceDir"
 $cmd
 "@ | Set-Content -Path $launcher -Encoding ASCII
 
-    $windowStyle = if ($ShowWindow) { 'Normal' } else { 'Hidden' }
-    Start-Process -FilePath $launcher -WindowStyle $windowStyle
-    return $launcher
+    # Clones always run hidden. If one fails to launch, the run loop detects
+    # it (the wrapper process below exits almost immediately) and reports it
+    # in the watcher window itself using this captured stderr - see the
+    # $pendingClones handling in the 'run' case. Minecraft's own logging goes
+    # to logs/latest.log via Log4j, not stdout, so stderr alone is what
+    # launch-time failures (bad classpath, missing jar, etc.) show up in.
+    $errorLog = Join-Path $instanceDir "launcher-error.log"
+    $proc = Start-Process -FilePath $launcher -WindowStyle Hidden -RedirectStandardError $errorLog -PassThru
+    return [pscustomobject]@{
+        Launcher  = $launcher
+        ProcessId = $proc.Id
+        ErrorLog  = $errorLog
+    }
 }
 
 function Set-InstanceTitle {
@@ -78,33 +85,76 @@ function Set-InstanceTitle {
 switch ($Command) {
     'run' {
         Write-Host "Watching for a vanilla Minecraft launch. Any instance found will be cloned as '$Name' (Ctrl+C to stop watching)."
-        $clonedSources = @{}
-        $titledLogged  = @{}
+        $clonedSources  = @{}
+        $titledLogged   = @{}
+        $pendingClones  = @{}
+        $failureWindow  = [TimeSpan]::FromSeconds(10)
 
-        while ($true) {
-            foreach ($proc in (Get-MinecraftProcesses)) {
-                if ($proc.CommandLine -notmatch '--username\s+(\S+)') { continue }
-                $username = $matches[1]
-                $isClone  = $proc.CommandLine -match '-Dcloner\.marker=1'
-                $label    = if ($isClone) { $username } else { "$username (original)" }
+        try {
+            while ($true) {
+                foreach ($proc in (Get-MinecraftProcesses)) {
+                    if ($proc.CommandLine -notmatch '--username\s+(\S+)') { continue }
+                    $username = $matches[1]
+                    $isClone  = $proc.CommandLine -match '-Dcloner\.marker=1'
+                    $label    = if ($isClone) { $username } else { "$username (original)" }
 
-                if (Set-InstanceTitle -ProcessId $proc.ProcessId -Label $label) {
-                    if (-not $titledLogged.ContainsKey($proc.ProcessId)) {
-                        $titledLogged[$proc.ProcessId] = $true
-                        Write-Host "Window titled 'Minecraft - $label' (PID $($proc.ProcessId))"
+                    if (Set-InstanceTitle -ProcessId $proc.ProcessId -Label $label) {
+                        if (-not $titledLogged.ContainsKey($proc.ProcessId)) {
+                            $titledLogged[$proc.ProcessId] = $true
+                            Write-Host "Window titled 'Minecraft - $label' (PID $($proc.ProcessId))"
+                        }
+                    }
+
+                    if ($isClone) { continue }
+                    if ($clonedSources.ContainsKey($proc.ProcessId)) { continue }
+                    $clonedSources[$proc.ProcessId] = $true
+
+                    Write-Host "Found Minecraft running as '$username' (PID $($proc.ProcessId)) - launching a clone as '$Name'..."
+                    $clone = New-Clone -Proc $proc -Name $Name -InstallRoot $InstallRoot
+                    Write-Host "Clone '$Name' launched from $($clone.Launcher)"
+                    $pendingClones[$clone.ProcessId] = [pscustomobject]@{
+                        Name       = $Name
+                        ErrorLog   = $clone.ErrorLog
+                        LaunchedAt = Get-Date
                     }
                 }
 
-                if ($isClone) { continue }
-                if ($clonedSources.ContainsKey($proc.ProcessId)) { continue }
-                $clonedSources[$proc.ProcessId] = $true
+                # A clone's wrapper process is just cmd.exe running the java
+                # command in the foreground, so it stays alive exactly as long
+                # as the clone does. If it exits within $failureWindow of being
+                # launched, that's a startup failure (bad classpath, missing
+                # jar, etc. surface in well under that); anything later is just
+                # the player quitting normally.
+                foreach ($wrapperPid in @($pendingClones.Keys)) {
+                    $entry   = $pendingClones[$wrapperPid]
+                    $elapsed = (Get-Date) - $entry.LaunchedAt
+                    $wrapper = Get-Process -Id $wrapperPid -ErrorAction SilentlyContinue
 
-                Write-Host "Found Minecraft running as '$username' (PID $($proc.ProcessId)) - launching a clone as '$Name'..."
-                $launcher = New-Clone -Proc $proc -Name $Name -InstallRoot $InstallRoot -ShowWindow:$ShowWindow
-                Write-Host "Clone '$Name' launched from $launcher"
+                    if (-not $wrapper -or $wrapper.HasExited) {
+                        if ($elapsed -lt $failureWindow) {
+                            Write-Host ""
+                            Write-Host "Clone '$($entry.Name)' failed to launch (exited after $([int]$elapsed.TotalSeconds)s)." -ForegroundColor Red
+                            if (Test-Path $entry.ErrorLog) {
+                                $errText = (Get-Content -Path $entry.ErrorLog -Raw -ErrorAction SilentlyContinue)
+                                if ($errText) { Write-Host $errText.Trim() -ForegroundColor DarkYellow }
+                            }
+                            Read-Host "Press Enter to continue watching" | Out-Null
+                        }
+                        $pendingClones.Remove($wrapperPid)
+                    } elseif ($elapsed -ge $failureWindow) {
+                        $pendingClones.Remove($wrapperPid)
+                    }
+                }
+
+                Start-Sleep -Seconds $PollSeconds
             }
-
-            Start-Sleep -Seconds $PollSeconds
+        } catch [System.Management.Automation.PipelineStoppedException] {
+            # Ctrl+C - a clean, requested stop. Just let the window close.
+        } catch {
+            Write-Host ""
+            Write-Host "Nametag stopped unexpectedly: $_" -ForegroundColor Red
+            Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
+            Read-Host "Press Enter to close this window" | Out-Null
         }
     }
 
@@ -119,12 +169,11 @@ username, so multiple people sharing one Microsoft account can join the
 same LAN world without a "name already taken" collision.
 
 Usage:
-  nametag -Name <name> [-PollSeconds <n>] [-ShowWindow]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
-  nametag uninstall                                        Remove Nametag.
+  nametag -Name <name> [-PollSeconds <n>]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
+  nametag uninstall                          Remove Nametag.
 
-  -ShowWindow   Show the clone's console window (titled 'Nametag - <name>')
-                instead of running it hidden. Useful for troubleshooting a
-                clone that fails to launch.
+If a clone fails to launch, Nametag reports it right in this window and
+waits for a keypress before continuing to watch.
 
 Uninstall is also available from Windows Settings > Apps > Installed apps > Nametag.
 "@ | Write-Host
