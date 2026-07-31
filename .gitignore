@@ -1,0 +1,4 @@
+# Generated launch scripts and per-instance state contain live Microsoft
+# access tokens - never commit these.
+instances/
+launch_*.cmd
