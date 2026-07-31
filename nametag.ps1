@@ -1,8 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('once', 'watch', 'uninstall', 'help')]
-    [string]$Command = 'help',
+    [ValidateSet('run', 'uninstall', 'help')]
+    [string]$Command = 'run',
 
     [string]$Name = "Clone",
 
@@ -69,20 +69,7 @@ function Set-InstanceTitle {
 }
 
 switch ($Command) {
-    'once' {
-        $source = Get-MinecraftProcesses |
-            Where-Object { $_.CommandLine -notmatch '-Dcloner\.marker=1' } |
-            Select-Object -First 1
-
-        if (-not $source) {
-            throw "No running (non-cloned) Minecraft instance found. Launch Minecraft via the vanilla launcher first."
-        }
-
-        $launcher = New-Clone -Proc $source -Name $Name -InstallRoot $InstallRoot
-        Write-Host "Launched clone '$Name' from $launcher"
-    }
-
-    'watch' {
+    'run' {
         Write-Host "Watching for Minecraft to launch as '$Name'... (Ctrl+C to stop)"
         $clonedSources = @{}
         $titledLogged  = @{}
@@ -124,9 +111,8 @@ username, so multiple people sharing one Microsoft account can join the
 same LAN world without a "name already taken" collision.
 
 Usage:
-  nametag once  -Name <name>                     One-shot: clone the running instance now.
-  nametag watch -Name <name> [-PollSeconds <n>]   Keep watching; auto-clone new launches and re-tag window titles.
-  nametag uninstall                               Remove Nametag.
+  nametag -Name <name> [-PollSeconds <n>]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
+  nametag uninstall                          Remove Nametag.
 
 Uninstall is also available from Windows Settings > Apps > Installed apps > Nametag.
 "@ | Write-Host

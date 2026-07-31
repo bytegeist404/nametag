@@ -25,14 +25,14 @@ Open a **new** terminal window afterwards so the PATH change takes effect.
 Launch Minecraft normally via the vanilla launcher first, then:
 
 ```powershell
-nametag once -Name ECHO              # clone the running instance once
-nametag watch -Name ECHO             # keep watching; auto-clone new launches
-nametag watch -Name ECHO -PollSeconds 2
+nametag -Name ECHO
+nametag -Name ECHO -PollSeconds 2
 ```
 
-`watch` also keeps re-tagging window titles (`Minecraft - ECHO`, etc.) for
-as long as it runs, so both windows stay identifiable even after Minecraft
-resets its own title on load.
+This watches for Minecraft, clones it under the given name, and keeps
+re-tagging window titles (`Minecraft - ECHO`, etc.) for as long as it runs —
+re-tagging has to be continuous, since Minecraft resets its own title once
+loading finishes. Leave it running for as long as you're playing.
 
 ## Uninstall
 
@@ -48,4 +48,4 @@ Or: Settings > Apps > Installed apps > Nametag > Uninstall.
   short-lived (~24h) and machine-local; the generated `launch_*.cmd` files
   under `instances\` are not meant to be shared.
 - A Minecraft client/Java runtime update can invalidate a clone's captured
-  paths; just re-run `nametag once`/`watch` to recapture.
+  paths; just restart `nametag` to recapture.

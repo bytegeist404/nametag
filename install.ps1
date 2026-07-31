@@ -39,5 +39,5 @@ Set-ItemProperty -Path $RegKey -Name "NoRepair"        -Value 1 -Type DWord
 
 Write-Host ""
 Write-Host "Nametag installed to $InstallDir"
-Write-Host "Open a NEW terminal window and run: nametag watch -Name <YourAltName>"
+Write-Host "Open a NEW terminal window and run: nametag -Name <YourAltName>"
 Write-Host "To uninstall later: Settings > Apps > Installed apps > Nametag, or run 'nametag uninstall'."
