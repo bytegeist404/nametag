@@ -17,10 +17,12 @@ public static extern bool SetWindowText(IntPtr hWnd, string lpString);
 "@ -ErrorAction SilentlyContinue
 
 function Get-MinecraftProcesses {
+    # Match on the vanilla client's actual entry point rather than guessing
+    # from install/runtime folder names - this holds regardless of where the
+    # launcher, Java runtime, or .minecraft folder happen to live.
     Get-CimInstance Win32_Process | Where-Object {
         $_.CommandLine -and
-        ($_.CommandLine -match '\\runtime\\java-runtime' -or $_.CommandLine -match '\\runtime\\jre') -and
-        $_.CommandLine -match '\\\.minecraft\\bin\\'
+        $_.CommandLine -match '\bnet\.minecraft\.client\.main\.Main\b'
     }
 }
 
@@ -42,6 +44,7 @@ function New-Clone {
     # recreate it fresh on every (re)launch.
     $instanceDir = Join-Path $InstallRoot "instances\$Name"
     if (Test-Path $instanceDir) {
+        Write-Host "Clearing previous '$Name' instance data in $instanceDir"
         Get-ChildItem -Path $instanceDir -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
     } else {
         New-Item -ItemType Directory -Path $instanceDir -Force | Out-Null
@@ -70,7 +73,7 @@ function Set-InstanceTitle {
 
 switch ($Command) {
     'run' {
-        Write-Host "Watching for Minecraft to launch as '$Name'... (Ctrl+C to stop)"
+        Write-Host "Watching for a vanilla Minecraft launch. Any instance found will be cloned as '$Name' (Ctrl+C to stop watching)."
         $clonedSources = @{}
         $titledLogged  = @{}
 
@@ -84,7 +87,7 @@ switch ($Command) {
                 if (Set-InstanceTitle -ProcessId $proc.ProcessId -Label $label) {
                     if (-not $titledLogged.ContainsKey($proc.ProcessId)) {
                         $titledLogged[$proc.ProcessId] = $true
-                        Write-Host "Tagged window for PID $($proc.ProcessId) as 'Minecraft - $label'"
+                        Write-Host "Window titled 'Minecraft - $label' (PID $($proc.ProcessId))"
                     }
                 }
 
@@ -92,8 +95,9 @@ switch ($Command) {
                 if ($clonedSources.ContainsKey($proc.ProcessId)) { continue }
                 $clonedSources[$proc.ProcessId] = $true
 
+                Write-Host "Found Minecraft running as '$username' (PID $($proc.ProcessId)) - launching a clone as '$Name'..."
                 $launcher = New-Clone -Proc $proc -Name $Name -InstallRoot $InstallRoot
-                Write-Host "Detected Minecraft (PID $($proc.ProcessId), '$username') - launched clone '$Name' from $launcher"
+                Write-Host "Clone '$Name' launched from $launcher"
             }
 
             Start-Sleep -Seconds $PollSeconds
