@@ -14,8 +14,21 @@ Invoke-WebRequest -Uri "$RepoRawBase/uninstall.ps1" -OutFile (Join-Path $Install
 # CLI shim so `nametag` works from any terminal (cmd, PowerShell, Windows Terminal).
 # .cmd is on PATHEXT everywhere, unlike .ps1, so this is the simplest way to
 # make a bare `nametag <args>` command work without shell-specific profile edits.
+#
+# The default/`run` mode is a long-running watch loop, so it's launched in its
+# own console via `start` instead of inline. Inline would make this .cmd file
+# cmd.exe's active batch job for as long as the loop runs, and Ctrl+C during a
+# batch job always triggers cmd's "Terminate batch job (Y/N)?" prompt,
+# regardless of how the child process handles the signal. Running `start`ed
+# means Ctrl+C is handled directly by PowerShell in its own window, no prompt.
+# `uninstall`/`help` are one-shot, so they stay inline and return immediately.
 @"
 @echo off
+if /I "%1"=="uninstall" goto passthrough
+if /I "%1"=="help" goto passthrough
+start "Nametag" powershell -NoProfile -ExecutionPolicy Bypass -NoExit -File "$InstallDir\nametag.ps1" %*
+goto :eof
+:passthrough
 powershell -NoProfile -ExecutionPolicy Bypass -File "$InstallDir\nametag.ps1" %*
 "@ | Set-Content -Path (Join-Path $BinDir "nametag.cmd") -Encoding ASCII
 

@@ -36,10 +36,12 @@ give your sibling their own session:
 nametag -Name Sibling
 ```
 
-This watches for Minecraft, clones it under the given name, and keeps
-re-tagging window titles (e.g. `Minecraft - Sibling`) for as long as it
-runs — re-tagging has to be continuous, since Minecraft resets its own title
-once loading finishes. Leave it running for as long as you're playing.
+This opens a new "Nametag" console window that watches for Minecraft, clones
+it under the given name, and keeps re-tagging window titles (e.g.
+`Minecraft - Sibling`) for as long as it runs — re-tagging has to be
+continuous, since Minecraft resets its own title once loading finishes.
+Leave it running for as long as you're playing, and press Ctrl+C in the
+"Nametag" window (or just close it) to stop.
 
 Flags:
 
