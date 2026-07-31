@@ -41,14 +41,15 @@ re-tagging window titles (e.g. `Minecraft - Sibling`) for as long as it
 runs — re-tagging has to be continuous, since Minecraft resets its own title
 once loading finishes. Leave it running for as long as you're playing.
 
-Other flags:
+Flags:
 
 | Flag               | Default | Description                                                                                                                     |
 |--------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `-Name <name>`     | `Clone` | Display name for the clone.                                                                                                    |
 | `-PollSeconds <n>` | `1`     | How often to check for a new Minecraft launch, in seconds.                                                                     |
 | `-ShowWindow`      | off     | Show the clone's console window (titled `Nametag - <name>`) instead of running it hidden — useful for troubleshooting a clone that fails to launch. |
 
-`-Name` also defaults to `Clone` if omitted:
+All together:
 
 ```powershell
 nametag -Name Sibling -PollSeconds 2 -ShowWindow
@@ -73,6 +74,8 @@ Or: Settings > Apps > Installed apps > Nametag > Uninstall.
 ## Credits
 
 The process-command-line capture approach (finding the running Minecraft
-process and reusing its launch command) is based on the macOS implementation
-in [basbase/mc-login-cloner](https://github.com/basbase/mc-login-cloner/blob/master/src/mac.ts),
-ported to Windows/PowerShell.
+process and reusing its launch command) was created by
+[basbase](https://github.com/basbase) for the macOS implementation in their
+[mc-login-cloner](https://github.com/basbase/mc-login-cloner) project (see
+[`src/mac.ts`](https://github.com/basbase/mc-login-cloner/blob/master/src/mac.ts)),
+ported here to Windows/PowerShell.
