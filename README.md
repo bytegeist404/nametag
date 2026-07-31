@@ -25,14 +25,34 @@ Open a **new** terminal window afterwards so the PATH change takes effect.
 Launch Minecraft normally via the vanilla launcher first, then:
 
 ```powershell
-nametag -Name ECHO
-nametag -Name ECHO -PollSeconds 2
+nametag -Name <name>
+```
+
+`<name>` is just a display name for the clone — it shows up in-game and in
+the window title, and isn't tied to any Microsoft account. For example, to
+give your sibling their own session:
+
+```powershell
+nametag -Name Sibling
 ```
 
 This watches for Minecraft, clones it under the given name, and keeps
-re-tagging window titles (`Minecraft - ECHO`, etc.) for as long as it runs —
-re-tagging has to be continuous, since Minecraft resets its own title once
-loading finishes. Leave it running for as long as you're playing.
+re-tagging window titles (e.g. `Minecraft - Sibling`) for as long as it
+runs — re-tagging has to be continuous, since Minecraft resets its own title
+once loading finishes. Leave it running for as long as you're playing.
+
+Other flags:
+
+| Flag               | Default | Description                                                                                                                     |
+|--------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------|
+| `-PollSeconds <n>` | `1`     | How often to check for a new Minecraft launch, in seconds.                                                                     |
+| `-ShowWindow`      | off     | Show the clone's console window (titled `Nametag - <name>`) instead of running it hidden — useful for troubleshooting a clone that fails to launch. |
+
+`-Name` also defaults to `Clone` if omitted:
+
+```powershell
+nametag -Name Sibling -PollSeconds 2 -ShowWindow
+```
 
 ## Uninstall
 

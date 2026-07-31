@@ -6,7 +6,9 @@ param(
 
     [string]$Name = "Clone",
 
-    [int]$PollSeconds = 1
+    [int]$PollSeconds = 1,
+
+    [switch]$ShowWindow
 )
 
 $InstallRoot = $PSScriptRoot
@@ -27,7 +29,7 @@ function Get-MinecraftProcesses {
 }
 
 function New-Clone {
-    param($Proc, [string]$Name, [string]$InstallRoot)
+    param($Proc, [string]$Name, [string]$InstallRoot, [switch]$ShowWindow)
 
     $cmd = $Proc.CommandLine
     $cmd = $cmd -replace '(-D[^ ]+=)\s+', '$1'
@@ -53,11 +55,13 @@ function New-Clone {
     $launcher = Join-Path $instanceDir "launch_$Name.cmd"
     @"
 @echo off
+title Nametag - $Name
 cd /d "$instanceDir"
 $cmd
 "@ | Set-Content -Path $launcher -Encoding ASCII
 
-    Start-Process -FilePath $launcher
+    $windowStyle = if ($ShowWindow) { 'Normal' } else { 'Hidden' }
+    Start-Process -FilePath $launcher -WindowStyle $windowStyle
     return $launcher
 }
 
@@ -96,7 +100,7 @@ switch ($Command) {
                 $clonedSources[$proc.ProcessId] = $true
 
                 Write-Host "Found Minecraft running as '$username' (PID $($proc.ProcessId)) - launching a clone as '$Name'..."
-                $launcher = New-Clone -Proc $proc -Name $Name -InstallRoot $InstallRoot
+                $launcher = New-Clone -Proc $proc -Name $Name -InstallRoot $InstallRoot -ShowWindow:$ShowWindow
                 Write-Host "Clone '$Name' launched from $launcher"
             }
 
@@ -115,8 +119,12 @@ username, so multiple people sharing one Microsoft account can join the
 same LAN world without a "name already taken" collision.
 
 Usage:
-  nametag -Name <name> [-PollSeconds <n>]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
-  nametag uninstall                          Remove Nametag.
+  nametag -Name <name> [-PollSeconds <n>] [-ShowWindow]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
+  nametag uninstall                                        Remove Nametag.
+
+  -ShowWindow   Show the clone's console window (titled 'Nametag - <name>')
+                instead of running it hidden. Useful for troubleshooting a
+                clone that fails to launch.
 
 Uninstall is also available from Windows Settings > Apps > Installed apps > Nametag.
 "@ | Write-Host
