@@ -29,6 +29,8 @@ function Get-MinecraftProcesses {
 function New-Clone {
     param($Proc, [string]$Name, [string]$InstallRoot)
 
+    Write-Verbose "Captured command line for PID $($Proc.ProcessId): $($Proc.CommandLine)"
+
     $cmd = $Proc.CommandLine
     $cmd = $cmd -replace '(-D[^ ]+=)\s+', '$1'
     $cmd = $cmd -replace '--username\s+\S+', "--username $Name"
@@ -43,6 +45,12 @@ function New-Clone {
     # producing an untagged clone that looked like a fresh original and
     # got cloned again, and again, and again.
     $cmd = $cmd -replace '\bnet\.minecraft\.client\.main\.Main\b', '-Dcloner.marker=1 $0'
+
+    if ($cmd -notmatch '-Dcloner\.marker=1') {
+        Write-Warning "Clone '$Name' could not be tagged (net.minecraft.client.main.Main wasn't found in the captured command line). It will look like a fresh original and may get cloned again in a loop. Run nametag with -Verbose to see the captured command line."
+    }
+
+    Write-Verbose "Clone command line: $cmd"
 
     # Give this name its own working directory. Log4j writes logs/ and
     # crash-reports/ as paths relative to the process's CWD (not --gameDir),
@@ -90,6 +98,17 @@ function Set-InstanceTitle {
 
 switch ($Command) {
     'run' {
+        # -Verbose sets $VerbosePreference to 'Continue' for this run; piggyback
+        # on that to also save everything (Write-Host/-Verbose/-Warning alike)
+        # to a plain text file, so a -Verbose session can be shared as-is
+        # instead of having to be copy-pasted out of the console.
+        $transcriptPath = $null
+        if ($VerbosePreference -eq 'Continue') {
+            $transcriptPath = Join-Path $InstallRoot "nametag-verbose.log"
+            Start-Transcript -Path $transcriptPath | Out-Null
+            Write-Host "Saving verbose output to $transcriptPath"
+        }
+
         Write-Host "Watching for a vanilla Minecraft launch. Any instance found will be cloned as '$Name' (Ctrl+C to stop watching)."
         $clonedSources  = @{}
         $titledLogged   = @{}
@@ -98,11 +117,20 @@ switch ($Command) {
 
         try {
             while ($true) {
-                foreach ($proc in (Get-MinecraftProcesses)) {
-                    if ($proc.CommandLine -notmatch '--username\s+(\S+)') { continue }
+                $processes = @(Get-MinecraftProcesses)
+                Write-Verbose "Poll: found $($processes.Count) Minecraft process(es)."
+
+                foreach ($proc in $processes) {
+                    Write-Verbose "PID $($proc.ProcessId): $($proc.CommandLine)"
+
+                    if ($proc.CommandLine -notmatch '--username\s+(\S+)') {
+                        Write-Verbose "PID $($proc.ProcessId): no --username found, skipping."
+                        continue
+                    }
                     $username = $matches[1]
                     $isClone  = $proc.CommandLine -match '-Dcloner\.marker=1'
                     $label    = if ($isClone) { $username } else { "$username (original)" }
+                    Write-Verbose "PID $($proc.ProcessId): username='$username' isClone=$isClone"
 
                     if (Set-InstanceTitle -ProcessId $proc.ProcessId -Label $label) {
                         if (-not $titledLogged.ContainsKey($proc.ProcessId)) {
@@ -161,6 +189,8 @@ switch ($Command) {
             Write-Host "Nametag stopped unexpectedly: $_" -ForegroundColor Red
             Write-Host $_.ScriptStackTrace -ForegroundColor DarkGray
             Read-Host "Press Enter to close this window" | Out-Null
+        } finally {
+            if ($transcriptPath) { Stop-Transcript | Out-Null }
         }
     }
 
@@ -175,11 +205,14 @@ username, so multiple people sharing one Microsoft account can join the
 same LAN world without a "name already taken" collision.
 
 Usage:
-  nametag -Name <name> [-PollSeconds <n>]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
-  nametag uninstall                          Remove Nametag.
+  nametag -Name <name> [-PollSeconds <n>] [-Verbose]   Watch for Minecraft, auto-clone it, and keep re-tagging window titles.
+  nametag uninstall                                     Remove Nametag.
 
 If a clone fails to launch, Nametag reports it right in this window and
-waits for a keypress before continuing to watch.
+waits for a keypress before continuing to watch. Add -Verbose for detailed
+diagnostics (captured command lines, per-poll process matches, etc.) if
+something looks wrong - it's also saved to nametag-verbose.log so it can be
+shared without copy-pasting from the console.
 
 Uninstall is also available from Windows Settings > Apps > Installed apps > Nametag.
 "@ | Write-Host

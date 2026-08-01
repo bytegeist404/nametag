@@ -62,6 +62,16 @@ All together:
 nametag -Name Sibling -PollSeconds 2
 ```
 
+If something looks wrong (a clone not getting tagged correctly, a process
+not being picked up, etc.), add PowerShell's built-in `-Verbose` switch for
+detailed diagnostics — captured command lines, per-poll process matches, and
+so on. It's also saved to `%LOCALAPPDATA%\Nametag\nametag-verbose.log`, so
+you can share the file directly instead of copy-pasting from the console:
+
+```powershell
+nametag -Name Sibling -Verbose
+```
+
 ## Uninstall
 
 ```powershell
