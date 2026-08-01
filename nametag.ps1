@@ -35,8 +35,14 @@ function New-Clone {
     $cmd = $cmd -replace '\s*--quickPlayPath\s+\S+', ''
 
     # Tag the clone so no watcher (ours or a differently-named one) ever
-    # treats this spawned clone as a source to clone again.
-    $cmd = $cmd -replace '^("[^"]+")\s*', '$1 -Dcloner.marker=1 '
+    # treats this spawned clone as a source to clone again. Anchored to the
+    # main class (guaranteed present - it's what Get-MinecraftProcesses
+    # matched on) rather than the leading executable token: that token is
+    # only quoted when the path happens to contain a space, so anchoring
+    # there silently dropped the marker on installs where it didn't -
+    # producing an untagged clone that looked like a fresh original and
+    # got cloned again, and again, and again.
+    $cmd = $cmd -replace '\bnet\.minecraft\.client\.main\.Main\b', '-Dcloner.marker=1 $0'
 
     # Give this name its own working directory. Log4j writes logs/ and
     # crash-reports/ as paths relative to the process's CWD (not --gameDir),
